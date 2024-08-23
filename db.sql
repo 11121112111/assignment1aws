@@ -1,0 +1,24 @@
+
+CREATE DATABASE LibraryDB;
+
+USE LibraryDB;
+
+
+CREATE TABLE Books (
+    BookID INT AUTO_INCREMENT PRIMARY KEY,
+    Title VARCHAR(255) NOT NULL,
+    Author VARCHAR(255) NOT NULL,
+    ISBN VARCHAR(13) UNIQUE NOT NULL,
+    PublishedYear YEAR,
+    Genre VARCHAR(100),
+    Language VARCHAR(50)
+);
+
+CREATE TABLE LibraryCopies (
+    CopyID INT AUTO_INCREMENT PRIMARY KEY,
+    BookID INT,
+    Available BOOLEAN DEFAULT TRUE,
+    LibraryBranch VARCHAR(255),
+    ShelfLocation VARCHAR(100),
+    FOREIGN KEY (BookID) REFERENCES Books(BookID) ON DELETE CASCADE
+);
