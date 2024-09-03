@@ -1,15 +1,12 @@
+
+require('dotenv').config();
+
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql');
 const bodyParser = require('body-parser');
-const cors = require('cors');
-app.use(cors());
-
-
 const app = express();
-const port = 3000;
 
-app.use(bodyParser.urlencoded({ extended: true }));
-
+app.use(bodyParser.json());
 
 const connection = mysql.createConnection({
     host: 'assignment1.czvktyad06kg.us-east-1.rds.amazonaws.com',  
@@ -20,110 +17,73 @@ const connection = mysql.createConnection({
 
 connection.connect((err) => {
     if (err) {
-        console.error('Error connecting to the database:', err.stack);
+        console.error('Database connection failed: ' + err.stack);
         return;
     }
-    console.log('Connected to the database.');
-});
-
-
-app.get('/', (req, res) => {
-    res.send(`
-        <h1>Add a New Book</h1>
-        <form action="/addBook" method="post">
-            <label for="title">Title:</label><br>
-            <input type="text" id="title" name="title"><br>
-            <label for="author">Author:</label><br>
-            <input type="text" id="author" name="author"><br>
-            <label for="isbn">ISBN:</label><br>
-            <input type="text" id="isbn" name="isbn"><br>
-            <label for="publishedYear">Published Year:</label><br>
-            <input type="number" id="publishedYear" name="publishedYear"><br>
-            <label for="genre">Genre:</label><br>
-            <input type="text" id="genre" name="genre"><br>
-            <label for="language">Language:</label><br>
-            <input type="text" id="language" name="language"><br><br>
-            <input type="submit" value="Submit">
-        </form>
-        <br>
-        <a href="/viewBooks">View All Books</a>
-    `);
+    console.log('Connected to database.');
 });
 
 
 app.post('/addBook', (req, res) => {
     const { title, author, isbn, publishedYear, genre, language } = req.body;
 
-    const sql = `INSERT INTO Books (Title, Author, ISBN, PublishedYear, Genre, Language) VALUES (?, ?, ?, ?, ?, ?)`;
-    const values = [title, author, isbn, publishedYear, genre, language];
-
-    connection.query(sql, values, (err, results) => {
+    const query = 'INSERT INTO Books (Title, Author, ISBN, PublishedYear, Genre, Language) VALUES (?, ?, ?, ?, ?, ?)';
+    
+    connection.query(query, [title, author, isbn, publishedYear, genre, language], (err, results) => {
         if (err) {
-            console.error('Error inserting data into the database:', err.stack);
-            res.send('Error adding book.');
-            return;
+            console.error('Error adding book: ', err);
+            res.status(500).send('Error adding book');
+        } else {
+            res.status(200).send('Book added successfully!');
         }
-        res.send('Book added successfully! <br><a href="/">Go back</a>');
     });
 });
 
 
 app.get('/viewBooks', (req, res) => {
-    const sql = `
-        SELECT Books.BookID, Books.Title, Books.Author, Books.ISBN, Books.PublishedYear, Books.Genre, Books.Language, LibraryCopies.Available, LibraryCopies.CopyID
-        FROM Books
-        LEFT JOIN LibraryCopies ON Books.BookID = LibraryCopies.BookID;
-    `;
 
-    connection.query(sql, (err, results) => {
+    const query = 'SELECT Books.BookID, Books.Title, Books.Author, Books.ISBN, Books.PublishedYear, Books.Genre, Books.Language, LibraryCopies.Available FROM Books JOIN LibraryCopies ON Books.BookID = LibraryCopies.BookID';
+    
+    connection.query(query, (err, results) => {
         if (err) {
-            console.error('Error retrieving data from the database:', err.stack);
-            res.send('Error retrieving books.');
-            return;
+            console.error('Error retrieving books: ', err);
+            res.status(500).send('Error retrieving books');
+        } else {
+            res.status(200).json(results);
         }
-
-        let html = '<h1>All Books</h1><table border="1"><tr><th>Title</th><th>Author</th><th>ISBN</th><th>Published Year</th><th>Genre</th><th>Language</th><th>Available</th><th>Action</th></tr>';
-        results.forEach(row => {
-            html += `
-                <tr>
-                    <td>${row.Title}</td>
-                    <td>${row.Author}</td>
-                    <td>${row.ISBN}</td>
-                    <td>${row.PublishedYear}</td>
-                    <td>${row.Genre}</td>
-                    <td>${row.Language}</td>
-                    <td>${row.Available ? 'Yes' : 'No'}</td>
-                    <td>
-                        ${row.Available ? `<form action="/markUnavailable" method="post" style="display:inline;">
-                            <input type="hidden" name="copyID" value="${row.CopyID}">
-                            <input type="submit" value="Mark Unavailable">
-                        </form>` : ''}
-                    </td>
-                </tr>
-            `;
-        });
-        html += '</table><br><a href="/">Add a New Book</a>';
-        res.send(html);
     });
 });
 
 
-app.post('/markUnavailable', (req, res) => {
-    const { copyID } = req.body;
+app.put('/updateAvailability/:id', (req, res) => {
+    const bookId = req.params.id;
+    const { available } = req.body;
 
-    const sql = `UPDATE LibraryCopies SET Available = FALSE WHERE CopyID = ?`;
 
-    connection.query(sql, [copyID], (err, results) => {
+    const query = 'UPDATE LibraryCopies SET Available = ? WHERE BookID = ?';
+
+    connection.query(query, [available, bookId], (err, results) => {
         if (err) {
-            console.error('Error updating data in the database:', err.stack);
-            res.send('Error marking book as unavailable.');
-            return;
+            console.error('Error updating availability: ', err);
+            res.status(500).send('Error updating availability');
+        } else {
+            res.status(200).send('Book availability updated successfully!');
         }
-        res.send('Book marked as unavailable successfully! <br><a href="/viewBooks">View All Books</a>');
     });
 });
 
 
-app.listen(port, () => {
-    console.log(`LibraryApp running at http://localhost:${port}`);
+app.get('/', (req, res) => {
+    res.send('Welcome to the Library Management System API!');
+});
+
+
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something went wrong!');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
