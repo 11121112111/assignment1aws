@@ -1,4 +1,7 @@
 Vagrant.configure("2") do |config|
+  # Increase boot timeout to handle slower startup times
+  config.vm.boot_timeout = 600
+
   # Define the VM for the web server
   config.vm.define "web" do |web|
     web.vm.box = "ubuntu/bionic64"
@@ -16,7 +19,7 @@ Vagrant.configure("2") do |config|
   # Define the VM for the database server
   config.vm.define "db" do |db|
     db.vm.box = "ubuntu/bionic64"
-    db.vm.network "forwarded_port", guest: 3306, host: 3306
+    db.vm.network "forwarded_port", guest: 3306, host: 3307
     db.vm.provision "shell", path: "provision_db.sh"
   end
 end
